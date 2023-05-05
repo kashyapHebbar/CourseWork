@@ -213,19 +213,17 @@ def build_transforms(
         ]
     transform_train += [T.ToTensor()]
     if color_aug:
-        transform_train += [ColorAugmentation()]
-    transform_train += [normalize]
+        transform_train.append(ColorAugmentation())
+        transform_train.append(normalize)
     if random_erase:
-        transform_train += [RandomErasing()]
-    transform_train = T.Compose(transform_train)
+        transform_train.append(RandomErasing())
     if horizontal_flip:
-        transform_train += [RandomHorizontalFlip()]
-    transform_train = T.Compose(transform_train)
+        transform_train.append(RandomHorizontalFlip())
     if vertical_flip:
-        transform_train += [RandomVerticalFlip()]
-    transform_train = T.Compose(transform_train)
+        transform_train.append(RandomVerticalFlip())
     if zoom:
-        transform_train += [RandomZoom(min_zoom=0.8, max_zoom=1.2, p=0.5)]
+        transform_train.append(RandomZoom(min_zoom=0.8, max_zoom=1.2, p=0.5))
+
     transform_train = T.Compose(transform_train)
     # build test transformations
     transform_test = T.Compose(
