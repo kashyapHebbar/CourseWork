@@ -2,7 +2,7 @@
 
 import math
 import random
-
+import torch.nn.functional as F
 import torch
 import torchvision.transforms as T
 from PIL import Image
@@ -149,6 +149,8 @@ class RandomVerticalFlip:
             return tensor
         return torch.flip(tensor, dims=[-2])
     
+
+
 class RandomZoom:
     """
     Randomly zoom the image with a given probability and zoom range
@@ -168,13 +170,13 @@ class RandomZoom:
         new_h, new_w = int(h * zoom_factor), int(w * zoom_factor)
 
         # Resize the tensor to the zoomed dimensions
-        tensor = T.resize(tensor, (new_h, new_w))
+        tensor = F.interpolate(tensor.unsqueeze(0), size=(new_h, new_w), mode='bilinear', align_corners=False).squeeze(0)
 
         # If zoomed in, crop the tensor to the original dimensions
         if zoom_factor > 1:
             top = (new_h - h) // 2
             left = (new_w - w) // 2
-            tensor = T.crop(tensor, top, left, h, w)
+            tensor = tensor[:, top:top+h, left:left+w]
         # If zoomed out, pad the tensor to the original dimensions
         else:
             pad_top = (h - new_h) // 2
@@ -182,9 +184,10 @@ class RandomZoom:
             pad_left = (w - new_w) // 2
             pad_right = w - new_w - pad_left
             padding = (pad_left, pad_top, pad_right, pad_bottom)
-            tensor = T.pad(tensor, padding)
+            tensor = F.pad(tensor, padding)
 
         return tensor
+
 
 def build_transforms(
     height,
