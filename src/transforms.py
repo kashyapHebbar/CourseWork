@@ -151,42 +151,7 @@ class RandomVerticalFlip:
     
 
 
-class RandomZoom:
-    """
-    Randomly zoom the image with a given probability and zoom range
-    """
 
-    def __init__(self, min_zoom=0.8, max_zoom=1.2, p=0.5):
-        self.min_zoom = min_zoom
-        self.max_zoom = max_zoom
-        self.p = p
-
-    def __call__(self, tensor):
-        if random.uniform(0, 1) > self.p:
-            return tensor
-
-        zoom_factor = random.uniform(self.min_zoom, self.max_zoom)
-        h, w = tensor.shape[-2:]
-        new_h, new_w = int(h * zoom_factor), int(w * zoom_factor)
-
-        # Resize the tensor to the zoomed dimensions
-        tensor = F.interpolate(tensor.unsqueeze(0), size=(new_h, new_w), mode='bilinear', align_corners=False).squeeze(0)
-
-        # If zoomed in, crop the tensor to the original dimensions
-        if zoom_factor > 1:
-            top = (new_h - h) // 2
-            left = (new_w - w) // 2
-            tensor = tensor[:, top:top+h, left:left+w]
-        # If zoomed out, pad the tensor to the original dimensions
-        else:
-            pad_top = (h - new_h) // 2
-            pad_bottom = h - new_h - pad_top
-            pad_left = (w - new_w) // 2
-            pad_right = w - new_w - pad_left
-            padding = (pad_left, pad_top, pad_right, pad_bottom)
-            tensor = F.pad(tensor, padding)
-
-        return tensor
 
 
 def build_transforms(
@@ -197,7 +162,6 @@ def build_transforms(
     color_aug=True,  # randomly alter the intensities of RGB channels
     horizontal_flip=True, #randomly flip the images horizontally
     vertical_flip=True, #randomly flip the images vertically
-    zoom=True, #randomly zoom the images with a given factor
     **kwargs
 ):
     # use imagenet mean and std as default
@@ -224,8 +188,6 @@ def build_transforms(
         transform_train.append(RandomHorizontalFlip())
     if vertical_flip:
         transform_train.append(RandomVerticalFlip())
-    if zoom:
-        transform_train.append(RandomZoom(min_zoom=0.8, max_zoom=1.2, p=0.5))
 
     transform_train = T.Compose(transform_train)
     # build test transformations
