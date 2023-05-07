@@ -131,7 +131,7 @@ class RandomHorizontalFlip:
     Randomly flip the image horizontally with a given probability
     """
 
-    def __init__(self, p=0.5):
+    def __init__(self, p=0.1):
         self.p = p
 
     def __call__(self, tensor):
@@ -145,7 +145,7 @@ class RandomVerticalFlip:
     Randomly flip the image vertically with a given probability
     """
 
-    def __init__(self, p=0.5):
+    def __init__(self, p=0.1):
         self.p = p
 
     def __call__(self, tensor):
@@ -153,92 +153,19 @@ class RandomVerticalFlip:
             return tensor
         return torch.flip(tensor, dims=[-2])
     
-class GaussianNoise(object):
-    def __init__(self, mean=0, std=1, p=0.5):
-        self.mean = mean
-        self.std = std
-        self.p = p
+class CustomRandomCrop:
+    def __init__(self, size, padding=None):
+        self.size = size
+        self.padding = padding
+        self.transform = T.Compose([
+            T.Resize((224, 224)),
+            T.RandomCrop(size=self.size, padding=self.padding),
+            T.ToTensor(),
+            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
 
     def __call__(self, img):
-        # Check if the random value is greater than the probability
-        if np.random.random() > self.p:
-            return img
-
-        # Convert the input image to a numpy array
-        img_np = np.array(img)
-
-        # Generate Gaussian noise
-        noise = np.random.normal(self.mean, self.std, img_np.shape)
-
-        # Add noise to the image
-        noisy_img = img_np + noise
-
-        # Clip the values to be between 0 and 255
-        noisy_img = np.clip(noisy_img, 0, 255)
-
-        # Convert the noisy image back to a PIL Image and ensure the data type is uint8
-        noisy_img_pil = Image.fromarray(noisy_img.astype(np.uint8))
-
-        return noisy_img_pil
-
-
-class GaussianBlur(object):
-    def __init__(self, kernel_size=5, p=0.5):
-        self.kernel_size = kernel_size
-        self.p = p
-
-    def __call__(self, img):
-        # Check if the random value is greater than the probability
-        if np.random.random() > self.p:
-            return img
-
-        # Convert the input image to a numpy array
-        img_np = np.array(img)
-
-        # Apply Gaussian blur
-        blurred_img = cv2.GaussianBlur(img_np, (self.kernel_size, self.kernel_size), 0)
-        # Convert the blurred image back to a PIL Image
-        blurred_img_pil = Image.fromarray(blurred_img)
-
-        return blurred_img_pil
-
-
-class ElasticTransform:
-    def __init__(self, alpha=1, sigma=0.05, p=0.5):
-        self.alpha = alpha
-        self.sigma = sigma
-        self.p = p
-
-    def __call__(self, img):
-        if random.random() < self.p:
-            img_np = np.array(img)
-            shape = img_np.shape
-            dx = gaussian_filter(
-                (np.random.rand(*shape) * 2 - 1),
-                self.sigma,
-                mode="constant",
-                cval=0,
-            ) * self.alpha
-            dy = gaussian_filter(
-                (np.random.rand(*shape) * 2 - 1),
-                self.sigma,
-                mode="constant",
-                cval=0,
-            ) * self.alpha
-
-            x, y, z = np.meshgrid(
-                np.arange(shape[1]), np.arange(shape[0]), np.arange(shape[2])
-            )
-            indices = (
-                np.reshape(y + dy, (-1, 1)),
-                np.reshape(x + dx, (-1, 1)),
-                np.reshape(z, (-1, 1)),
-            )
-
-            img_np = map_coordinates(img_np, indices, order=1).reshape(shape)
-            img = Image.fromarray(img_np)
-        return img
-
+        return self.transform(img)
 
 
 def build_transforms(
@@ -248,11 +175,8 @@ def build_transforms(
     color_jitter=True,  # randomly change the brightness, contrast and saturation
     color_aug=True,  # randomly alter the intensities of RGB channels
     horizontal_flip=True, #randomly flip the images horizontally
-    vertical_flip=True, #randomly flip the images vertically
-    gaussian_noise=True,
-    gaussian_blur=True, 
-    elastic_transform=True, 
-
+    vertical_flip=True, #randomly flip the images vertically,
+    custom_random_crop=True,
     **kwargs
 ):
     # use imagenet mean and std as default
@@ -279,13 +203,11 @@ def build_transforms(
         transform_train.append(RandomHorizontalFlip())
     if vertical_flip:
         transform_train.append(RandomVerticalFlip())
-    if gaussian_noise:
-        transform_train.append(GaussianNoise())
-    if gaussian_blur:
-        transform_train.append(GaussianBlur())
-    if elastic_transform:
-        transform_train.append(ElasticTransform())
         transform_train.append(normalize)
+    if custom_random_crop:
+        transform_train.append(CustomRandomCrop())
+        transform_train.append(normalize) 
+
     transform_train = T.Compose(transform_train)
     # build test transformations
     transform_test = T.Compose(

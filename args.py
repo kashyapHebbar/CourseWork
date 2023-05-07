@@ -79,19 +79,9 @@ def argument_parser():
         help="randomly flip the images vertically",
     )
     parser.add_argument(
-        "--gaussian-noise",
+        "-- custom_random_crop",
         action="store_true",
-        help="add random Gaussian noise to the images",
-    )
-    parser.add_argument(
-        "--gaussian-blur",
-        action="store_true",
-        help="apply Gaussian blur to the images",
-    )
-    parser.add_argument(
-        "--elastic-transform",
-        action="store_true",
-        help="apply random elastic transformations to the images",
+        help="randomly Crop the images",
     )
     
     # ************************************************************
