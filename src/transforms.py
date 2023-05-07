@@ -154,17 +154,22 @@ class RandomVerticalFlip:
         return torch.flip(tensor, dims=[-2])
     
 class RandomWarp:
-    def __init__(self, p=0.5, scale=(0.9, 1.1)):
+    def __init__(self, p=0.5, scale=(0.9, 1.1), height=None, width=None):
         self.p = p
         self.scale = scale
+        self.height = height
+        self.width = width
 
     def __call__(self, img):
         if random.uniform(0, 1) > self.p:
             return img
 
-        height, width, _ = img.shape
-        scale = self.scale
+        if self.height is not None and self.width is not None:
+            height, width = self.height, self.width
+        else:
+            height, width, _ = img.shape
 
+        scale = self.scale
         # Generate random offset for corner points
         dx = width * (scale[1] - scale[0]) / 4
         dy = height * (scale[1] - scale[0]) / 4
