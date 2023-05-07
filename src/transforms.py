@@ -9,6 +9,8 @@ from PIL import Image
 import cv2
 from scipy.ndimage import gaussian_filter, map_coordinates
 import numpy as np
+from scipy.ndimage import gaussian_filter
+
 
 class Random2DTranslation:
     """
@@ -152,18 +154,17 @@ class RandomVerticalFlip:
         return torch.flip(tensor, dims=[-2])
     
 class GaussianNoise:
-    """
-    Add random Gaussian noise to the images
-    """
-
-    def __init__(self, mean=0, std=0.1):
+    def __init__(self, mean=0, std=1, p=0.5):
         self.mean = mean
         self.std = std
+        self.p = p
 
     def __call__(self, img):
-        noise = np.random.normal(self.mean, self.std, img.shape)
-        noisy_img = np.clip(img + noise, 0, 255)
-        return noisy_img.astype(np.uint8)
+        if random.random() < self.p:
+            noise = np.random.normal(self.mean, self.std, img.size())
+            img = img + torch.tensor(noise, dtype=torch.float32)
+        return img
+
 
 
 class GaussianBlur:
@@ -180,31 +181,40 @@ class GaussianBlur:
 
 
 class ElasticTransform:
-    """
-    Apply random elastic transformations to the images
-    """
-
-    def __init__(self, alpha=50, sigma=3, random_state=None):
+    def __init__(self, alpha=1, sigma=0.05, p=0.5):
         self.alpha = alpha
         self.sigma = sigma
-        self.random_state = random_state
+        self.p = p
 
     def __call__(self, img):
-        if self.random_state is None:
-            random_state = np.random.RandomState(None)
-        else:
-            random_state = self.random_state
+        if random.random() < self.p:
+            img_np = np.array(img)
+            shape = img_np.shape
+            dx = gaussian_filter(
+                (np.random.rand(*shape) * 2 - 1),
+                self.sigma,
+                mode="constant",
+                cval=0,
+            ) * self.alpha
+            dy = gaussian_filter(
+                (np.random.rand(*shape) * 2 - 1),
+                self.sigma,
+                mode="constant",
+                cval=0,
+            ) * self.alpha
 
-        shape = img.shape
-        dx = gaussian_filter((random_state.rand(*shape) * 2 - 1), self.sigma, mode="constant", cval=0) * self.alpha
-        dy = gaussian_filter((random_state.rand(*shape) * 2 - 1), self.sigma, mode="constant", cval=0) * self.alpha
+            x, y, z = np.meshgrid(
+                np.arange(shape[1]), np.arange(shape[0]), np.arange(shape[2])
+            )
+            indices = (
+                np.reshape(y + dy, (-1, 1)),
+                np.reshape(x + dx, (-1, 1)),
+                np.reshape(z, (-1, 1)),
+            )
 
-        x, y, z = np.meshgrid(np.arange(shape[1]), np.arange(shape[0]), np.arange(shape[2]), indexing='ij')
-        indices = np.reshape(y+dy, (-1, 1)), np.reshape(x+dx, (-1, 1))
-
-        transformed_img = map_coordinates(img, indices, order=1, mode='reflect').reshape(shape)
-        return transformed_img
-
+            img_np = map_coordinates(img_np, indices, order=1).reshape(shape)
+            img = Image.fromarray(img_np)
+        return img
 
 
 
