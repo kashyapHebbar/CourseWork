@@ -126,20 +126,47 @@ class ColorAugmentation:
         tensor = tensor + quatity.view(3, 1, 1)
         return tensor
 
-class RandomBrightness:
-    def __init__(self, brightness=0.15):
-        self.brightness = brightness
+class RandomGrayscale:
+    def __init__(self, p=0.1):
+        self.p = p
 
     def __call__(self, img):
-        return F.adjust_brightness(img, random.uniform(1 - self.brightness, 1 + self.brightness))
+        if random.uniform(0, 1) > self.p:
+            return img
+        return T.functional.to_grayscale(img)
 
+    def __repr__(self):
+        return self.__class__.__name__ + '(p={})'.format(self.p)
 
-class RandomContrast:
-    def __init__(self, contrast=0.15):
-        self.contrast = contrast
+class RandomPerspective:
+    def __init__(self, distortion_scale=0.5, p=0.5, interpolation=Image.BICUBIC):
+        self.distortion_scale = distortion_scale
+        self.p = p
+        self.interpolation = interpolation
 
     def __call__(self, img):
-        return F.adjust_contrast(img, random.uniform(1 - self.contrast, 1 + self.contrast))
+        if random.uniform(0, 1) > self.p:
+            return img
+        return T.functional.perspective(img, self.get_params(img, self.distortion_scale), interpolation=self.interpolation)
+
+    def get_params(self, img, distortion_scale):
+        width, height = img.size
+
+        startpoints, endpoints = [], []
+        for _ in range(4):
+            x = random.uniform(0, width * distortion_scale)
+            y = random.uniform(0, height * distortion_scale)
+            startpoints.append((x, y))
+
+            x = width - x
+            y = height - y
+            endpoints.append((x, y))
+
+        return startpoints, endpoints
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(distortion_scale={}, p={}, interpolation={})'.format(self.distortion_scale, self.p, self.interpolation)
+
 
 
 class RandomRotation:
@@ -159,9 +186,9 @@ def build_transforms(
     random_erase=True,  # use random erasing for data augmentation
     color_jitter=True,  # randomly change the brightness, contrast and saturation
     color_aug=True,  # randomly alter the intensities of RGB channels
-    random_brightness=True,
-    random_contrast=True,
-    random_rotation=True,
+    random_grayscale=True,  # apply random grayscale transformation
+    random_perspective=True,  # apply random perspective transformation
+    random_rotation=True, 
     **kwargs
 ):
     # use imagenet mean and std as default
@@ -184,12 +211,12 @@ def build_transforms(
     transform_train.append(normalize)
     if random_erase:
         transform_train.append(RandomErasing())
-    if random_brightness:
-        transform_train.append(RandomBrightness(brightness=0.2))
-    if random_contrast:
-        transform_train.append(RandomContrast(contrast=0.2))
     if random_rotation:
         transform_train.append(RandomRotation(degrees=15))
+    if random_grayscale:
+        transform_train.append(T.RandomGrayscale(p=0.1))
+    if random_perspective:
+        transform_train.append(T.RandomPerspective(distortion_scale=0.2, p=0.5))
     transform_train = T.Compose(transform_train)
     # build test transformations
     transform_test = T.Compose(

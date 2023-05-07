@@ -69,21 +69,20 @@ def argument_parser():
         help="randomly alter the intensities of RGB channels",
     )
     parser.add_argument(
-        "--random-brightness",
-        action="store_true",
-        help="randomly adjust the brightness of images",
-    )
-    parser.add_argument(
-        "--random-contrast",
-        action="store_true",
-        help="randomly adjust the contrast of images",
-    )
-    parser.add_argument(
         "--random-rotation",
         action="store_true",
         help="randomly rotate the images",
     )
-  
+    parser.add_argument(
+        "--random-grayscale",
+        action="store_true",
+        help="apply random grayscale transformation",
+    )
+    parser.add_argument(
+        "--random-perspective",
+        action="store_true",
+        help="apply random perspective transformation",
+    )
     
     # ************************************************************
     # Optimization options
