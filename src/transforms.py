@@ -153,9 +153,10 @@ class RandomVerticalFlip:
             return tensor
         return torch.flip(tensor, dims=[-2])
     
-class GaussianBlur(object):
-    def __init__(self, kernel_size=5, p=0.5):
-        self.kernel_size = kernel_size
+class GaussianNoise(object):
+    def __init__(self, mean=0, std=1, p=0.5):
+        self.mean = mean
+        self.std = std
         self.p = p
 
     def __call__(self, img):
@@ -166,13 +167,19 @@ class GaussianBlur(object):
         # Convert the input image to a numpy array
         img_np = np.array(img)
 
-        # Apply Gaussian blur
-        blurred_img = cv2.GaussianBlur(img_np, (self.kernel_size, self.kernel_size), 0)
+        # Generate Gaussian noise
+        noise = np.random.normal(self.mean, self.std, img_np.shape)
 
-        # Convert the blurred image back to a PIL Image and ensure the data type is uint8
-        blurred_img_pil = Image.fromarray(blurred_img.astype(np.uint8))
+        # Add noise to the image
+        noisy_img = img_np + noise
 
-        return blurred_img_pil
+        # Clip the values to be between 0 and 255
+        noisy_img = np.clip(noisy_img, 0, 255)
+
+        # Convert the noisy image back to a PIL Image and ensure the data type is uint8
+        noisy_img_pil = Image.fromarray(noisy_img.astype(np.uint8))
+
+        return noisy_img_pil
 
 
 class GaussianBlur(object):
