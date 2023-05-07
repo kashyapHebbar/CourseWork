@@ -153,19 +153,7 @@ class RandomVerticalFlip:
             return tensor
         return torch.flip(tensor, dims=[-2])
     
-class CustomRandomCrop:
-    def __init__(self, size, padding=None):
-        self.size = size
-        self.padding = padding
-        self.transform = T.Compose([
-            T.Resize((224, 224)),
-            T.RandomCrop(size=self.size, padding=self.padding),
-            T.ToTensor(),
-            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
 
-    def __call__(self, img):
-        return self.transform(img)
 
 
 def build_transforms(
@@ -204,9 +192,6 @@ def build_transforms(
     if vertical_flip:
         transform_train.append(RandomVerticalFlip())
         transform_train.append(normalize)
-    if custom_random_crop:
-        transform_train.append(CustomRandomCrop())
-        transform_train.append(normalize) 
 
     transform_train = T.Compose(transform_train)
     # build test transformations
