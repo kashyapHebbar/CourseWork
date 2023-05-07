@@ -6,7 +6,9 @@ import torch.nn.functional as F
 import torch
 import torchvision.transforms as T
 from PIL import Image
-
+import cv2
+from scipy.ndimage import gaussian_filter, map_coordinates
+import numpy as np
 
 class Random2DTranslation:
     """
@@ -149,7 +151,59 @@ class RandomVerticalFlip:
             return tensor
         return torch.flip(tensor, dims=[-2])
     
+class GaussianNoise:
+    """
+    Add random Gaussian noise to the images
+    """
 
+    def __init__(self, mean=0, std=0.1):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, img):
+        noise = np.random.normal(self.mean, self.std, img.shape)
+        noisy_img = np.clip(img + noise, 0, 255)
+        return noisy_img.astype(np.uint8)
+
+
+class GaussianBlur:
+    """
+    Apply Gaussian blur to the images
+    """
+
+    def __init__(self, kernel_size=5):
+        self.kernel_size = kernel_size
+
+    def __call__(self, img):
+        blurred_img = cv2.GaussianBlur(img, (self.kernel_size, self.kernel_size), 0)
+        return blurred_img
+
+
+class ElasticTransform:
+    """
+    Apply random elastic transformations to the images
+    """
+
+    def __init__(self, alpha=50, sigma=3, random_state=None):
+        self.alpha = alpha
+        self.sigma = sigma
+        self.random_state = random_state
+
+    def __call__(self, img):
+        if self.random_state is None:
+            random_state = np.random.RandomState(None)
+        else:
+            random_state = self.random_state
+
+        shape = img.shape
+        dx = gaussian_filter((random_state.rand(*shape) * 2 - 1), self.sigma, mode="constant", cval=0) * self.alpha
+        dy = gaussian_filter((random_state.rand(*shape) * 2 - 1), self.sigma, mode="constant", cval=0) * self.alpha
+
+        x, y, z = np.meshgrid(np.arange(shape[1]), np.arange(shape[0]), np.arange(shape[2]), indexing='ij')
+        indices = np.reshape(y+dy, (-1, 1)), np.reshape(x+dx, (-1, 1))
+
+        transformed_img = map_coordinates(img, indices, order=1, mode='reflect').reshape(shape)
+        return transformed_img
 
 
 
@@ -162,6 +216,10 @@ def build_transforms(
     color_aug=True,  # randomly alter the intensities of RGB channels
     horizontal_flip=True, #randomly flip the images horizontally
     vertical_flip=True, #randomly flip the images vertically
+    gaussian_noise=True,
+    gaussian_blur=True, 
+    elastic_transform=True, 
+
     **kwargs
 ):
     # use imagenet mean and std as default
@@ -188,7 +246,13 @@ def build_transforms(
         transform_train.append(RandomHorizontalFlip())
     if vertical_flip:
         transform_train.append(RandomVerticalFlip())
-
+    if gaussian_noise:
+        transform_train.append(GaussianNoise())
+    if gaussian_blur:
+        transform_train.append(GaussianBlur())
+    if elastic_transform:
+        transform_train.append(ElasticTransform())
+        transform_train.append(normalize)
     transform_train = T.Compose(transform_train)
     # build test transformations
     transform_test = T.Compose(
