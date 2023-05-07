@@ -181,15 +181,16 @@ def build_transforms(
     transform_train += [T.ToTensor()]
     if color_aug:
         transform_train.append(ColorAugmentation())
-        transform_train.append(normalize)
+    transform_train.append(normalize)
     if random_erase:
         transform_train.append(RandomErasing())
     if random_brightness:
-        transform_train.append(RandomBrightness(brightness=0.15))
+        transform_train.append(RandomBrightness(brightness=0.2))
     if random_contrast:
-        transform_train.append(RandomContrast(contrast=0.15))
+        transform_train.append(RandomContrast(contrast=0.2))
     if random_rotation:
         transform_train.append(RandomRotation(degrees=15))
+    transform_train = T.Compose(transform_train)
     # build test transformations
     transform_test = T.Compose(
         [
