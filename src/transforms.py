@@ -154,9 +154,7 @@ class RandomVerticalFlip:
         return torch.flip(tensor, dims=[-2])
     
 class RandomWarp:
-    def __init__(self, height, width, p=0.5, scale=0.05):
-        self.height = height
-        self.width = width
+    def __init__(self, p=0.5, scale=(0.9, 1.1)):
         self.p = p
         self.scale = scale
 
@@ -167,27 +165,20 @@ class RandomWarp:
         height, width, _ = img.shape
         scale = self.scale
 
-        # Generate random points for the original image
-        pts1 = np.float32(
-            [
-                [0, 0],
-                [0, height - 1],
-                [width - 1, height - 1],
-                [width - 1, 0],
-            ]
-        )
+        # Generate random offset for corner points
+        dx = width * (scale[1] - scale[0]) / 4
+        dy = height * (scale[1] - scale[0]) / 4
 
-        # Generate random offsets for the destination points
-        offsets = np.random.uniform(-scale * width, scale * width, size=(4, 2))
+        # Randomly select corner points
+        pts1 = np.float32([[0, 0], [width, 0], [width, height], [0, height]])
+        pts2 = np.float32([
+            [random.uniform(-dx, dx), random.uniform(-dy, dy)],
+            [width - random.uniform(-dx, dx), random.uniform(-dy, dy)],
+            [width - random.uniform(-dx, dx), height - random.uniform(-dy, dy)],
+            [random.uniform(-dx, dx), height - random.uniform(-dy, dy)]
+        ])
 
-        # Calculate destination points
-        pts2 = pts1 + offsets
-
-        # Ensure pts1 and pts2 have the correct dimensions and data type
-        pts1 = pts1.reshape(4, 2).astype(np.float32)
-        pts2 = pts2.reshape(4, 2).astype(np.float32)
-
-        # Get the projective transformation matrix
+        # Calculate the transformation matrix
         M = cv2.getPerspectiveTransform(pts1, pts2)
 
         # Convert the input image to a numpy array with the correct data type
@@ -195,6 +186,9 @@ class RandomWarp:
 
         # Apply the transformation
         warped_img = cv2.warpPerspective(img, M, (width, height))
+
+        # Convert the numpy array back to a PyTorch tensor
+        warped_img = torch.from_numpy(warped_img.transpose((2, 0, 1))).float()
 
         return warped_img
 
