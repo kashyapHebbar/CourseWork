@@ -190,6 +190,9 @@ class RandomWarp:
         # Get the projective transformation matrix
         M = cv2.getPerspectiveTransform(pts1, pts2)
 
+        # Convert the input image to a numpy array with the correct data type
+        img = np.array(img).astype(np.uint8)
+
         # Apply the transformation
         warped_img = cv2.warpPerspective(img, M, (width, height))
 
