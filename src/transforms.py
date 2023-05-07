@@ -167,15 +167,14 @@ class RandomPerspective:
     def __repr__(self):
         return self.__class__.__name__ + '(distortion_scale={}, p={}, interpolation={})'.format(self.distortion_scale, self.p, self.interpolation)
 
-
-
 class RandomRotation:
     def __init__(self, degrees):
         self.degrees = degrees
 
     def __call__(self, img):
         angle = random.uniform(-self.degrees, self.degrees)
-        return F.rotate(img, angle)
+        return img.rotate(angle)
+
 
 
 
