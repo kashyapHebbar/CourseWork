@@ -167,17 +167,26 @@ class GaussianNoise:
 
 
 
-class GaussianBlur:
-    """
-    Apply Gaussian blur to the images
-    """
-
-    def __init__(self, kernel_size=5):
+class GaussianBlur(object):
+    def __init__(self, kernel_size=5, p=0.5):
         self.kernel_size = kernel_size
+        self.p = p
 
     def __call__(self, img):
-        blurred_img = cv2.GaussianBlur(img, (self.kernel_size, self.kernel_size), 0)
-        return blurred_img
+        # Check if the random value is greater than the probability
+        if np.random.random() > self.p:
+            return img
+
+        # Convert the input image to a numpy array
+        img_np = np.array(img)
+
+        # Apply Gaussian blur
+        blurred_img = cv2.GaussianBlur(img_np, (self.kernel_size, self.kernel_size), 0)
+
+        # Convert the blurred image back to a PIL Image
+        blurred_img_pil = Image.fromarray(blurred_img)
+
+        return blurred_img_pil
 
 
 class ElasticTransform:
