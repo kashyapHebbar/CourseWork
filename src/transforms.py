@@ -167,18 +167,6 @@ class RandomPerspective:
     def __repr__(self):
         return self.__class__.__name__ + '(distortion_scale={}, p={}, interpolation={})'.format(self.distortion_scale, self.p, self.interpolation)
 
-class RandomRotation:
-    def __init__(self, degrees):
-        self.degrees = degrees
-
-    def __call__(self, img):
-        angle = random.uniform(-self.degrees, self.degrees)
-        return img.rotate(angle)
-
-
-
-
-
 def build_transforms(
     height,
     width,
@@ -187,7 +175,6 @@ def build_transforms(
     color_aug=True,  # randomly alter the intensities of RGB channels
     random_grayscale=True,  # apply random grayscale transformation
     random_perspective=True,  # apply random perspective transformation
-    random_rotation=True, 
     **kwargs
 ):
     # use imagenet mean and std as default
@@ -210,8 +197,6 @@ def build_transforms(
     transform_train.append(normalize)
     if random_erase:
         transform_train.append(RandomErasing())
-    if random_rotation:
-        transform_train.append(RandomRotation(degrees=15))
     if random_grayscale:
         transform_train.append(T.RandomGrayscale(p=0.1))
     if random_perspective:
