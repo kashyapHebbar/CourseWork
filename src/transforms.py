@@ -167,6 +167,10 @@ class GaussianNoise:
 
 
 
+import numpy as np
+import cv2
+from PIL import Image
+
 class GaussianBlur(object):
     def __init__(self, kernel_size=5, p=0.5):
         self.kernel_size = kernel_size
@@ -182,7 +186,6 @@ class GaussianBlur(object):
 
         # Apply Gaussian blur
         blurred_img = cv2.GaussianBlur(img_np, (self.kernel_size, self.kernel_size), 0)
-
         # Convert the blurred image back to a PIL Image
         blurred_img_pil = Image.fromarray(blurred_img)
 
