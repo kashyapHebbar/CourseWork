@@ -192,6 +192,11 @@ class RandomWarp:
         # Apply the transformation
         warped_img = cv2.warpPerspective(img, M, (width, height))
 
+        # Check if the output image has the correct number of channels
+        if warped_img.shape[2] != 3:
+            print("Unexpected number of channels in the output image. Returning the original image.")
+            return img
+
         # Convert the numpy array back to a PyTorch tensor
         warped_img = torch.from_numpy(warped_img.transpose((2, 0, 1))).float()
 
