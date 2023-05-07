@@ -153,20 +153,10 @@ class RandomVerticalFlip:
             return tensor
         return torch.flip(tensor, dims=[-2])
     
-class CustomRandomCrop:
-    def __init__(self, size, padding=None):
-        self.size = size
-        self.padding = padding
-        self.transform = T.Compose([
-            T.Resize((224, 224),antialias=True),
-            T.RandomCrop(size=self.size, padding=self.padding),
-            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
-
-    def __call__(self, img):
-        return self.transform(img)
 class RandomWarp:
-    def __init__(self, p=0.5, scale=0.05):
+    def __init__(self, height, width, p=0.5, scale=0.05):
+        self.height = height
+        self.width = width
         self.p = p
         self.scale = scale
 
@@ -174,7 +164,7 @@ class RandomWarp:
         if random.uniform(0, 1) > self.p:
             return img
 
-        height, width, _ = img.shape
+        height, width = self.height, self.width
         scale = self.scale
 
         # Generate random points for the original image
@@ -200,6 +190,7 @@ class RandomWarp:
         warped_img = cv2.warpPerspective(img, M, (width, height))
 
         return warped_img
+
 
 def build_transforms(
     height,
