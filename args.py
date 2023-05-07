@@ -79,19 +79,19 @@ def argument_parser():
         help="randomly flip the images vertically",
     )
     parser.add_argument(
-    "--gaussian-noise",
-    action="store_true",
-    help="add random Gaussian noise to the images",
+        "--gaussian-noise",
+        action="store_true",
+        help="add random Gaussian noise to the images",
     )
     parser.add_argument(
-    "--gaussian-blur",
-    action="store_true",
-    help="apply Gaussian blur to the images",
+        "--gaussian-blur",
+        action="store_true",
+        help="apply Gaussian blur to the images",
     )
     parser.add_argument(
-    "--elastic-transform",
-    action="store_true",
-    help="apply random elastic transformations to the images",
+        "--elastic-transform",
+        action="store_true",
+        help="apply random elastic transformations to the images",
     )
     
     # ************************************************************
