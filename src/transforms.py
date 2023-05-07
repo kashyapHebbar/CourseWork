@@ -231,8 +231,6 @@ def build_transforms(
         transform_train.append(normalize)
     if random_wrap: 
         transform_train.append(RandomWarp(height=height, width=width))
-        # Add RandomWarp transformation
-        transform_train.append(RandomWarp())
 
     transform_train = T.Compose(transform_train)
     # build test transformations
