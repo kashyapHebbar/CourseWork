@@ -126,81 +126,29 @@ class ColorAugmentation:
         tensor = tensor + quatity.view(3, 1, 1)
         return tensor
 
-class RandomHorizontalFlip:
-    """
-    Randomly flip the image horizontally with a given probability
-    """
-
-    def __init__(self, p=0.1):
-        self.p = p
-
-    def __call__(self, tensor):
-        if random.uniform(0, 1) > self.p:
-            return tensor
-        return torch.flip(tensor, dims=[-1])
-
-
-class RandomVerticalFlip:
-    """
-    Randomly flip the image vertically with a given probability
-    """
-
-    def __init__(self, p=0.1):
-        self.p = p
-
-    def __call__(self, tensor):
-        if random.uniform(0, 1) > self.p:
-            return tensor
-        return torch.flip(tensor, dims=[-2])
-    
-class RandomWarp:
-    def __init__(self, p=0.5, scale=(0.9, 1.1), height=None, width=None):
-        self.p = p
-        self.scale = scale
-        self.height = height
-        self.width = width
+class RandomBrightness:
+    def __init__(self, brightness=0.15):
+        self.brightness = brightness
 
     def __call__(self, img):
-        if random.uniform(0, 1) > self.p:
-            return img
+        return F.adjust_brightness(img, random.uniform(1 - self.brightness, 1 + self.brightness))
 
-        if self.height is not None and self.width is not None:
-            height, width = self.height, self.width
-        else:
-            height, width, _ = img.shape
 
-        scale = self.scale
-        # Generate random offset for corner points
-        dx = width * (scale[1] - scale[0]) / 4
-        dy = height * (scale[1] - scale[0]) / 4
+class RandomContrast:
+    def __init__(self, contrast=0.15):
+        self.contrast = contrast
 
-        # Randomly select corner points
-        pts1 = np.float32([[0, 0], [width, 0], [width, height], [0, height]])
-        pts2 = np.float32([
-            [random.uniform(-dx, dx), random.uniform(-dy, dy)],
-            [width - random.uniform(-dx, dx), random.uniform(-dy, dy)],
-            [width - random.uniform(-dx, dx), height - random.uniform(-dy, dy)],
-            [random.uniform(-dx, dx), height - random.uniform(-dy, dy)]
-        ])
+    def __call__(self, img):
+        return F.adjust_contrast(img, random.uniform(1 - self.contrast, 1 + self.contrast))
 
-        # Calculate the transformation matrix
-        M = cv2.getPerspectiveTransform(pts1, pts2)
 
-        # Convert the input image to a numpy array with the correct data type
-        img = np.array(img).astype(np.uint8)
+class RandomRotation:
+    def __init__(self, degrees):
+        self.degrees = degrees
 
-        # Apply the transformation
-        warped_img = cv2.warpPerspective(img, M, (width, height))
-
-        # Check if the output image has the correct number of channels
-        if warped_img.shape[2] != 3:
-            print("Unexpected number of channels in the output image. Returning the original image.")
-            return img
-
-        # Convert the numpy array back to a PyTorch tensor
-        warped_img = torch.from_numpy(warped_img.transpose((2, 0, 1))).float()
-
-        return warped_img
+    def __call__(self, img):
+        angle = random.uniform(-self.degrees, self.degrees)
+        return F.rotate(img, angle)
 
 
 
@@ -211,10 +159,9 @@ def build_transforms(
     random_erase=True,  # use random erasing for data augmentation
     color_jitter=True,  # randomly change the brightness, contrast and saturation
     color_aug=True,  # randomly alter the intensities of RGB channels
-    horizontal_flip=True, #randomly flip the images horizontally
-    vertical_flip=True, #randomly flip the images vertically,
-    custom_random_crop=True,
-    random_wrap=True,
+    random_brightness=True,
+    random_contrast=True,
+    random_rotation=True,
     **kwargs
 ):
     # use imagenet mean and std as default
@@ -237,15 +184,12 @@ def build_transforms(
         transform_train.append(normalize)
     if random_erase:
         transform_train.append(RandomErasing())
-    if horizontal_flip:
-        transform_train.append(RandomHorizontalFlip())
-    if vertical_flip:
-        transform_train.append(RandomVerticalFlip())
-        transform_train.append(normalize)
-    if random_wrap: 
-        transform_train.append(RandomWarp(height=height, width=width))
-
-    transform_train = T.Compose(transform_train)
+    if random_brightness:
+        transform_train.append(RandomBrightness(brightness=0.15))
+    if random_contrast:
+        transform_train.append(RandomContrast(contrast=0.15))
+    if random_rotation:
+        transform_train.append(RandomRotation(degrees=15))
     # build test transformations
     transform_test = T.Compose(
         [
