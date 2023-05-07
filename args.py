@@ -78,7 +78,11 @@ def argument_parser():
         action="store_true",
         help="randomly flip the images vertically",
     )
-   
+    parser.add_argument(
+        "--custom-random-crop",
+        action="store_true",
+        help="randomly Crop the images",
+    )
     
     # ************************************************************
     # Optimization options
