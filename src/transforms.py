@@ -183,9 +183,9 @@ class RandomWarp:
         # Calculate destination points
         pts2 = pts1 + offsets
 
-        # Ensure pts1 and pts2 have the correct dimensions
-        pts1 = pts1.reshape(4, 2)
-        pts2 = pts2.reshape(4, 2)
+        # Ensure pts1 and pts2 have the correct dimensions and data type
+        pts1 = pts1.reshape(4, 2).astype(np.float32)
+        pts2 = pts2.reshape(4, 2).astype(np.float32)
 
         # Get the projective transformation matrix
         M = cv2.getPerspectiveTransform(pts1, pts2)
@@ -194,6 +194,7 @@ class RandomWarp:
         warped_img = cv2.warpPerspective(img, M, (width, height))
 
         return warped_img
+
 
 
 
