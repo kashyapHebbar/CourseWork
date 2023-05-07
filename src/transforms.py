@@ -164,7 +164,7 @@ class RandomWarp:
         if random.uniform(0, 1) > self.p:
             return img
 
-        height, width = self.height, self.width
+        height, width, _ = img.shape
         scale = self.scale
 
         # Generate random points for the original image
@@ -183,6 +183,10 @@ class RandomWarp:
         # Calculate destination points
         pts2 = pts1 + offsets
 
+        # Ensure pts1 and pts2 have the correct dimensions
+        pts1 = pts1.reshape(4, 2)
+        pts2 = pts2.reshape(4, 2)
+
         # Get the projective transformation matrix
         M = cv2.getPerspectiveTransform(pts1, pts2)
 
@@ -190,6 +194,7 @@ class RandomWarp:
         warped_img = cv2.warpPerspective(img, M, (width, height))
 
         return warped_img
+
 
 
 def build_transforms(
