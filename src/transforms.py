@@ -165,7 +165,41 @@ class CustomRandomCrop:
 
     def __call__(self, img):
         return self.transform(img)
+class RandomWarp:
+    def __init__(self, p=0.5, scale=0.05):
+        self.p = p
+        self.scale = scale
 
+    def __call__(self, img):
+        if random.uniform(0, 1) > self.p:
+            return img
+
+        height, width, _ = img.shape
+        scale = self.scale
+
+        # Generate random points for the original image
+        pts1 = np.float32(
+            [
+                [0, 0],
+                [0, height - 1],
+                [width - 1, height - 1],
+                [width - 1, 0],
+            ]
+        )
+
+        # Generate random offsets for the destination points
+        offsets = np.random.uniform(-scale * width, scale * width, size=(4, 2))
+
+        # Calculate destination points
+        pts2 = pts1 + offsets
+
+        # Get the projective transformation matrix
+        M = cv2.getPerspectiveTransform(pts1, pts2)
+
+        # Apply the transformation
+        warped_img = cv2.warpPerspective(img, M, (width, height))
+
+        return warped_img
 
 def build_transforms(
     height,
@@ -176,6 +210,7 @@ def build_transforms(
     horizontal_flip=True, #randomly flip the images horizontally
     vertical_flip=True, #randomly flip the images vertically,
     custom_random_crop=True,
+    random_wrap=True,
     **kwargs
 ):
     # use imagenet mean and std as default
@@ -203,9 +238,10 @@ def build_transforms(
     if vertical_flip:
         transform_train.append(RandomVerticalFlip())
         transform_train.append(normalize)
-    if custom_random_crop:
-        transform_train.append(CustomRandomCrop(size=(height,width)))
-        transform_train.append(normalize)
+    if random_wrap: 
+        transform_train.append(RandomWarp(height=height, width=width))
+        # Add RandomWarp transformation
+        transform_train.append(RandomWarp())
 
     transform_train = T.Compose(transform_train)
     # build test transformations
