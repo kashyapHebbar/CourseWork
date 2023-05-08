@@ -373,56 +373,14 @@ def resnet50_fc512(num_classes, loss={"xent"}, pretrained=True, **kwargs):
     if pretrained:
         init_pretrained_weights(model, model_urls["resnet50"])
     return model
-
-def resnet34_modified(num_classes, loss={"xent"}, pretrained=True, **kwargs):
-    model = ModifiedResNet(
-        num_classes=num_classes,
-        loss=loss,
-        block=BasicBlock,
-        layers=[3, 4, 6, 3],
-        last_stride=2,
-        fc_dims=[256],  # Add a new fully connected layer with 256 nodes
-        dropout_p=None,
-        **kwargs,
-    )
-    if pretrained:
-        init_pretrained_weights(model, model_urls["resnet34"])
-    return model
-
+     
 
 class ModifiedResNet(ResNet):
-    def _construct_fc_layer(self, fc_dims, input_dim, dropout_p=None):
-        """
-        Construct fully connected layer
-        - fc_dims (list or tuple): dimensions of fc layers, if None,
-                                   no fc layers are constructed
-        - input_dim (int): input dimension
-        - dropout_p (float): dropout probability, if None, dropout is unused
-        """
-        if fc_dims is None:
-            self.feature_dim = input_dim
-            return None
-
-        assert isinstance(
-            fc_dims, (list, tuple)
-        ), "fc_dims must be either list or tuple, but got {}".format(type(fc_dims))
-
-        layers = []
-
-        for dim in fc_dims:
-            layers.append(nn.Linear(input_dim, dim))
-            layers.append(nn.BatchNorm1d(dim))
-            layers.append(nn.LeakyReLU(inplace=True))  # Use Leaky ReLU activation function
-            if dropout_p is not None:
-                layers.append(nn.Dropout(p=dropout_p))
-            input_dim = dim
-
-        self.feature_dim = fc_dims[-1]
-
-        return nn.Sequential(*layers)
+    def __init__(self, *args, **kwargs):
+        super(ModifiedResNet, self).__init__(*args, **kwargs)
 
     def forward(self, x):
-        x = self.base_model(x)
+        x = self.base(x)
         x = F.avg_pool2d(x, x.size()[2:])
         v = x.view(x.size(0), -1)
 
@@ -440,3 +398,18 @@ class ModifiedResNet(ResNet):
             return y, v
         else:
             raise KeyError("Unsupported loss: {}".format(self.loss))
+
+def resnet34_modified(num_classes, loss={"xent"}, pretrained=True, **kwargs):
+    model = ModifiedResNet(
+        num_classes=num_classes,
+        loss=loss,
+        block=BasicBlock,
+        layers=[3, 4, 6, 3],
+        last_stride=2,
+        fc_dims=[256],  # Add a new fully connected layer with 256 nodes
+        dropout_p=None,
+        **kwargs,
+    )
+    if pretrained:
+        init_pretrained_weights(model, model_urls["resnet34"])
+    return model
