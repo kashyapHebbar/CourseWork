@@ -161,7 +161,6 @@ def main():
 
 
 def train(model, criterion, optimizer,scheduler, epoch, trainloader, use_gpu):
-    scheduler.step()
     model.train()
     xent_losses = AverageMeter()
     htri_losses = AverageMeter()
@@ -172,6 +171,7 @@ def train(model, criterion, optimizer,scheduler, epoch, trainloader, use_gpu):
     end = time.time()
     for batch_idx, (imgs, pids, camids) in enumerate(trainloader):
         data_time.update(time.time() - end)
+        scheduler.step()
 
         if use_gpu:
             imgs, pids, camids = imgs.cuda(), pids.cuda(), camids.cuda()
