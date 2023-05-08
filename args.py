@@ -203,6 +203,9 @@ def argument_parser():
     parser.add_argument(
         "--no-pretrained", action="store_true", help="do not load pretrained weights"
     )
+    parser.add_argument("--bn-momentum", type=float, default=0.1, help="batch normalization momentum")
+    parser.add_argument("--num-fc-layers", type=int, default=1, help="number of fully connected layers")
+    parser.add_argument("--weight-init", type=str, default=None, help="weight initialization method")
 
     # ************************************************************
     # Test settings

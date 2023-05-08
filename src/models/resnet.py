@@ -5,6 +5,7 @@ import torch.utils.model_zoo as model_zoo
 import torchvision
 from torch import nn
 from torch.nn import functional as F
+from torch.hub import load_state_dict_from_url
 
 __all__ = [
     "resnet18",
@@ -27,20 +28,19 @@ model_urls = {
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(
-        in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False
-    )
+        in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
 
 
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
+    def __init__(self, inplanes, planes, stride=1, downsample=None,bn_momentum=0.1):
         super().__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
-        self.bn1 = nn.BatchNorm2d(planes)
+        self.bn1 = nn.BatchNorm2d(planes,momentum=bn_momentum)
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(planes, planes)
-        self.bn2 = nn.BatchNorm2d(planes)
+        self.bn2 = nn.BatchNorm2d(planes,momentum=bn_momentum)
         self.downsample = downsample
         self.stride = stride
 
@@ -66,14 +66,14 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
+    def __init__(self, inplanes, planes, stride=1, downsample=None,bn_momentum=0.1):
         super().__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
+        self.bn1 = nn.BatchNorm2d(planes,momentum=bn_momentum)
         self.conv2 = nn.Conv2d(
             planes, planes, kernel_size=3, stride=stride, padding=1, bias=False
         )
-        self.bn2 = nn.BatchNorm2d(planes)
+        self.bn2 = nn.BatchNorm2d(planes,momentum=bn_momentum)
         self.conv3 = nn.Conv2d(
             planes, planes * self.expansion, kernel_size=1, bias=False
         )
@@ -122,16 +122,21 @@ class ResNet(nn.Module):
         last_stride=2,
         fc_dims=None,
         dropout_p=None,
+        bn_momentum=0.1, 
+        num_fc_layers=1,  
+        weight_init=None,  
         **kwargs,
     ):
         self.inplanes = 64
         super().__init__()
         self.loss = loss
         self.feature_dim = 512 * block.expansion
-
+        self.bn_momentum = bn_momentum  
+        self.num_fc_layers = num_fc_layers  
+        self.weight_init = weight_init  
         # backbone network
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
+        self.bn1 = nn.BatchNorm2d(64,momentum=bn_momentum)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
@@ -140,10 +145,10 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=last_stride)
 
         self.global_avgpool = nn.AdaptiveAvgPool2d(1)
-        self.fc = self._construct_fc_layer(fc_dims, 512 * block.expansion, dropout_p)
+        self.fc = self._construct_fc_layer(fc_dims, 512 * block.expansion, dropout_p,num_fc_layers)
         self.classifier = nn.Linear(self.feature_dim, num_classes)
-
-        self._init_params()
+        if weight_init is not None:  # Updated weight initialization
+            self._init_params(weight_init)
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
