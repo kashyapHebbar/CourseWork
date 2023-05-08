@@ -373,8 +373,9 @@ def resnet50_fc512(num_classes, loss={"xent"}, pretrained=True, **kwargs):
     if pretrained:
         init_pretrained_weights(model, model_urls["resnet50"])
     return model
-def resnet34modified(num_classes, loss={"xent"}, pretrained=True, **kwargs):
-    model = ResNet(
+
+def resnet34_modified(num_classes, loss={"xent"}, pretrained=True, **kwargs):
+    model = ModifiedResNet(
         num_classes=num_classes,
         loss=loss,
         block=BasicBlock,
@@ -407,7 +408,7 @@ class ModifiedResNet(ResNet):
         ), "fc_dims must be either list or tuple, but got {}".format(type(fc_dims))
 
         layers = []
-    
+
         for dim in fc_dims:
             layers.append(nn.Linear(input_dim, dim))
             layers.append(nn.BatchNorm1d(dim))
@@ -420,18 +421,22 @@ class ModifiedResNet(ResNet):
 
         return nn.Sequential(*layers)
 
+    def forward(self, x):
+        x = self.base(x)
+        x = F.avg_pool2d(x, x.size()[2:])
+        v = x.view(x.size(0), -1)
 
-def resnet34_modified(num_classes, loss={"xent"}, pretrained=True, **kwargs):
-    model = ModifiedResNet(
-        num_classes=num_classes,
-        loss=loss,
-        block=BasicBlock,
-        layers=[3, 4, 6, 3],
-        last_stride=2,
-        fc_dims=[256],  # Add a new fully connected layer with 256 nodes
-        dropout_p=None,
-        **kwargs,
-    )
-    if pretrained:
-        init_pretrained_weights(model, model_urls["resnet34"])
-    return model
+        if self.fc:
+            v = self.fc(v)
+
+        if not self.training:
+            return v
+
+        y = self.classifier(v)
+
+        if self.loss == {"xent"}:
+            return y
+        elif self.loss == {"xent", "htri"}:
+            return y, v
+        else:
+            raise KeyError("Unsupported loss: {}".format(self.loss))
