@@ -422,7 +422,7 @@ class ModifiedResNet(ResNet):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.base(x)
+        x = self.base_model(x)
         x = F.avg_pool2d(x, x.size()[2:])
         v = x.view(x.size(0), -1)
 
