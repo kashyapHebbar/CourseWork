@@ -381,7 +381,8 @@ class ModifiedResNet(ResNet):
 
     def forward(self, x):
         x = super(ModifiedResNet, self).forward(x)
-        x = F.avg_pool2d(x, x.size()[2:])
+        kernel_size = (x.size(2), x.size(3))
+        x = F.avg_pool2d(x, kernel_size)
         v = x.view(x.size(0), -1)
 
         if self.fc:
