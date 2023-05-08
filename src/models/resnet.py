@@ -145,7 +145,7 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=last_stride)
 
         self.global_avgpool = nn.AdaptiveAvgPool2d(1)
-        self.fc = self._construct_fc_layer(fc_dims, 512 * block.expansion, dropout_p,num_fc_layers)
+        self.fc = self._construct_fc_layer(fc_dims, 512 * block.expansion)
         self.classifier = nn.Linear(self.feature_dim, num_classes)
         if weight_init is not None:  # Updated weight initialization
             self._init_params(weight_init)
@@ -189,6 +189,7 @@ class ResNet(nn.Module):
         ), "fc_dims must be either list or tuple, but got {}".format(type(fc_dims))
 
         layers = []
+    
         for dim in fc_dims:
             layers.append(nn.Linear(input_dim, dim))
             layers.append(nn.BatchNorm1d(dim))
