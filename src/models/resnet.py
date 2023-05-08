@@ -380,7 +380,16 @@ class ModifiedResNet(ResNet):
         super(ModifiedResNet, self).__init__(*args, **kwargs)
 
     def forward(self, x):
-        x = super(ModifiedResNet, self).forward(x)
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+
         kernel_size = (x.size(2), x.size(3))
         x = F.avg_pool2d(x, kernel_size)
         v = x.view(x.size(0), -1)
@@ -399,6 +408,7 @@ class ModifiedResNet(ResNet):
             return y, v
         else:
             raise KeyError("Unsupported loss: {}".format(self.loss))
+
 
 def resnet34_modified(num_classes, loss={"xent"}, pretrained=True, **kwargs):
     model = ModifiedResNet(
