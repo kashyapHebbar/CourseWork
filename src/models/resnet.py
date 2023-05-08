@@ -380,7 +380,7 @@ class ModifiedResNet(ResNet):
         super(ModifiedResNet, self).__init__(*args, **kwargs)
 
     def forward(self, x):
-        x = self.base(x)
+        x = super(ModifiedResNet, self).forward(x)
         x = F.avg_pool2d(x, x.size()[2:])
         v = x.view(x.size(0), -1)
 
