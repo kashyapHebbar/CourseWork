@@ -21,6 +21,7 @@ from src.utils.avgmeter import AverageMeter
 from src.utils.generaltools import set_random_seed
 from src.utils.iotools import check_isfile
 from src.utils.loggers import Logger, RankLogger
+from src.models.resnet import resnet34_modified
 from src.utils.torchtools import (
     count_num_param,
     accuracy,
@@ -59,13 +60,8 @@ def main():
     trainloader, testloader_dict = dm.return_dataloaders()
 
     print(f"Initializing model: {args.arch}")
-    model = models.init_model(
-        name=args.arch,
-        num_classes=dm.num_train_pids,
-        loss={"xent", "htri"},
-        pretrained=not args.no_pretrained,
-        use_gpu=use_gpu,
-    )
+    num_classes = dm.num_train_pids
+    model = resnet34_modified(num_classes=num_classes, pretrained=not args.no_pretrained)
     print("Model size: {:.3f} M".format(count_num_param(model)))
 
     if args.load_weights and check_isfile(args.load_weights):
