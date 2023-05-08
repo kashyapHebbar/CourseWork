@@ -180,7 +180,7 @@ def train(
         if use_gpu:
             imgs, pids = imgs.cuda(), pids.cuda()
 
-        outputs, features = model(imgs)
+        outputs = model(imgs)
         if isinstance(outputs, (tuple, list)):
             xent_loss = DeepSupervision(criterion_xent, outputs, pids)
         else:
