@@ -160,7 +160,8 @@ def main():
     ranklogger.show_summary()
 
 
-def train(model, criterion, optimizer, epoch, trainloader, use_gpu):
+def train(model, criterion, optimizer,scheduler, epoch, trainloader, use_gpu):
+    scheduler.step()
     model.train()
     xent_losses = AverageMeter()
     htri_losses = AverageMeter()
