@@ -61,7 +61,8 @@ def main():
 
     print(f"Initializing model: {args.arch}")
     num_classes = dm.num_train_pids
-    model = resnet34_modified(num_classes=num_classes, pretrained=not args.no_pretrained)
+    model = resnet34_modified(num_classes=num_classes)
+
     print("Model size: {:.3f} M".format(count_num_param(model)))
 
     if args.load_weights and check_isfile(args.load_weights):
