@@ -6,6 +6,7 @@ import os.path as osp
 import sys
 import time
 import warnings
+
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
@@ -21,7 +22,6 @@ from src.utils.avgmeter import AverageMeter
 from src.utils.generaltools import set_random_seed
 from src.utils.iotools import check_isfile
 from src.utils.loggers import Logger, RankLogger
-from src.models.resnet import resnet34_modified
 from src.utils.torchtools import (
     count_num_param,
     accuracy,
@@ -60,9 +60,13 @@ def main():
     trainloader, testloader_dict = dm.return_dataloaders()
 
     print(f"Initializing model: {args.arch}")
-    num_classes = dm.num_train_pids
-    model = resnet34_modified(num_classes=num_classes)
-
+    model = models.init_model(
+        name=args.arch,
+        num_classes=dm.num_train_pids,
+        loss={"xent", "htri"},
+        pretrained=not args.no_pretrained,
+        use_gpu=use_gpu,
+    )
     print("Model size: {:.3f} M".format(count_num_param(model)))
 
     if args.load_weights and check_isfile(args.load_weights):
@@ -161,61 +165,66 @@ def main():
     ranklogger.show_summary()
 
 
-def train(model, criterion, optimizer,scheduler, epoch, trainloader, use_gpu):
-    model.train()
+def train(
+    epoch, model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu
+):
     xent_losses = AverageMeter()
     htri_losses = AverageMeter()
     accs = AverageMeter()
     batch_time = AverageMeter()
     data_time = AverageMeter()
 
+    model.train()
+    for p in model.parameters():
+        p.requires_grad = True  # open all layers
+
     end = time.time()
-    for batch_idx, (imgs, pids, camids) in enumerate(trainloader):
+    for batch_idx, (imgs, pids, _, _) in enumerate(trainloader):
         data_time.update(time.time() - end)
-        scheduler.step()
 
         if use_gpu:
-            imgs, pids, camids = imgs.cuda(), pids.cuda(), camids.cuda()
+            imgs, pids = imgs.cuda(), pids.cuda()
 
-        outputs = model(imgs)
-        features = outputs
+        outputs, features = model(imgs)
+        if isinstance(outputs, (tuple, list)):
+            xent_loss = DeepSupervision(criterion_xent, outputs, pids)
+        else:
+            xent_loss = criterion_xent(outputs, pids)
 
         if isinstance(features, (tuple, list)):
-            loss = DeepSupervision(criterion, features, pids)
+            htri_loss = DeepSupervision(criterion_htri, features, pids)
         else:
-            loss = criterion(features, pids)
+            htri_loss = criterion_htri(features, pids)
 
+        loss = args.lambda_xent * xent_loss + args.lambda_htri * htri_loss
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        xent_loss = loss.item()
-        xent_losses.update(xent_loss, pids.size(0))
-
-        _, preds = torch.max(outputs.data, 1)
-        acc = (preds == pids.data).float().mean()
-        accs.update(acc.item(), pids.size(0))
-
         batch_time.update(time.time() - end)
-        end = time.time()
 
-        if (batch_idx + 1) % 10 == 0:
+        xent_losses.update(xent_loss.item(), pids.size(0))
+        htri_losses.update(htri_loss.item(), pids.size(0))
+        accs.update(accuracy(outputs, pids)[0])
+
+        if (batch_idx + 1) % args.print_freq == 0:
             print(
-                "Epoch {0} [{1}/{2}]\t"
-                "Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
-                "Data Time {data_time.val:.3f} ({data_time.avg:.3f})\t"
-                "Loss {loss.val:.4f} ({loss.avg:.4f})\t"
-                "Acc {acc.val:.2%} ({acc.avg:.2%})".format(
+                "Epoch: [{0}][{1}/{2}]\t"
+                "Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
+                "Data {data_time.val:.4f} ({data_time.avg:.4f})\t"
+                "Xent {xent.val:.4f} ({xent.avg:.4f})\t"
+                "Htri {htri.val:.4f} ({htri.avg:.4f})\t"
+                "Acc {acc.val:.2f} ({acc.avg:.2f})\t".format(
                     epoch + 1,
                     batch_idx + 1,
                     len(trainloader),
                     batch_time=batch_time,
                     data_time=data_time,
-                    loss=xent_losses,
+                    xent=xent_losses,
+                    htri=htri_losses,
                     acc=accs,
                 )
             )
-
 
         end = time.time()
 

@@ -5,7 +5,6 @@ import torch.utils.model_zoo as model_zoo
 import torchvision
 from torch import nn
 from torch.nn import functional as F
-from torch.hub import load_state_dict_from_url
 
 __all__ = [
     "resnet18",
@@ -28,19 +27,20 @@ model_urls = {
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(
-        in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False
+    )
 
 
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None,bn_momentum=0.1):
+    def __init__(self, inplanes, planes, stride=1, downsample=None):
         super().__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
-        self.bn1 = nn.BatchNorm2d(planes,momentum=bn_momentum)
+        self.bn1 = nn.BatchNorm2d(planes)
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(planes, planes)
-        self.bn2 = nn.BatchNorm2d(planes,momentum=bn_momentum)
+        self.bn2 = nn.BatchNorm2d(planes)
         self.downsample = downsample
         self.stride = stride
 
@@ -66,18 +66,25 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None,bn_momentum=0.1):
+    def __init__(self, inplanes, planes, stride=1, downsample=None):
         super().__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes,momentum=bn_momentum)
+        self.bn1 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(
             planes, planes, kernel_size=3, stride=stride, padding=1, bias=False
         )
-        self.bn2 = nn.BatchNorm2d(planes,momentum=bn_momentum)
+        self.bn2 = nn.BatchNorm2d(planes)
         self.conv3 = nn.Conv2d(
             planes, planes * self.expansion, kernel_size=1, bias=False
         )
         self.bn3 = nn.BatchNorm2d(planes * self.expansion)
+
+        # new layer with 1024 channels
+        self.conv4 = nn.Conv2d(
+            planes * self.expansion, 1024, kernel_size=1, bias=False
+        )
+        self.bn4 = nn.BatchNorm2d(1024)
+
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -96,6 +103,10 @@ class Bottleneck(nn.Module):
         out = self.conv3(out)
         out = self.bn3(out)
 
+        # apply new layer
+        out = self.conv4(out)
+        out = self.bn4(out)
+
         if self.downsample is not None:
             residual = self.downsample(x)
 
@@ -103,6 +114,7 @@ class Bottleneck(nn.Module):
         out = self.relu(out)
 
         return out
+
 
 
 class ResNet(nn.Module):
@@ -122,22 +134,17 @@ class ResNet(nn.Module):
         last_stride=2,
         fc_dims=None,
         dropout_p=None,
-        bn_momentum=0.1, 
-        num_fc_layers=1,  
-        weight_init=None,  
         **kwargs,
     ):
         self.inplanes = 64
         super().__init__()
         self.loss = loss
-        self.feature_dim = 512 * block.expansion
-        self.bn_momentum = bn_momentum  
-        self.num_fc_layers = num_fc_layers  
-        self.weight_init = weight_init  
+        self.feature_dim = 1024 * block.expansion
+
         # backbone network
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1 = nn.BatchNorm2d(64,momentum=bn_momentum)
-        self.relu = nn.ReLU(inplace=True)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.relu = nn.LeakyReLU(negative_slope=leaky_slope, inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
@@ -145,11 +152,12 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=last_stride)
 
         self.global_avgpool = nn.AdaptiveAvgPool2d(1)
-        self.fc = self._construct_fc_layer(fc_dims, 512 * block.expansion)
+        self.fc = self._construct_fc_layer(fc_dims, 1024 * block.expansion, dropout_p)
         self.classifier = nn.Linear(self.feature_dim, num_classes)
-        if weight_init is not None:  # Updated weight initialization
-            self._init_params(weight_init)
 
+        self._init_params()
+
+    
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
@@ -165,12 +173,13 @@ class ResNet(nn.Module):
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
+        layers.append(block(self.inplanes, planes, stride, downsample, leaky_slope=self.leaky_slope))  # pass the leaky_slope argument
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
+            layers.append(block(self.inplanes, planes, leaky_slope=self.leaky_slope))  # pass the leaky_slope argument
 
         return nn.Sequential(*layers)
+
 
     def _construct_fc_layer(self, fc_dims, input_dim, dropout_p=None):
         """
@@ -189,7 +198,6 @@ class ResNet(nn.Module):
         ), "fc_dims must be either list or tuple, but got {}".format(type(fc_dims))
 
         layers = []
-    
         for dim in fc_dims:
             layers.append(nn.Linear(input_dim, dim))
             layers.append(nn.BatchNorm1d(dim))
@@ -372,55 +380,4 @@ def resnet50_fc512(num_classes, loss={"xent"}, pretrained=True, **kwargs):
     )
     if pretrained:
         init_pretrained_weights(model, model_urls["resnet50"])
-    return model
-     
-
-class ModifiedResNet(ResNet):
-    def __init__(self, *args, **kwargs):
-        super(ModifiedResNet, self).__init__(*args, **kwargs)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
-
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-
-        kernel_size = (x.size(2), x.size(3))
-        x = F.avg_pool2d(x, kernel_size)
-        v = x.view(x.size(0), -1)
-
-        if self.fc:
-            v = self.fc(v)
-
-        if not self.training:
-            return v
-
-        y = self.classifier(v)
-
-        if self.loss == {"xent"}:
-            return y
-        elif self.loss == {"xent", "htri"}:
-            return y, v
-        else:
-            raise KeyError("Unsupported loss: {}".format(self.loss))
-
-
-def resnet34_modified(num_classes, loss={"xent"}, pretrained=True, **kwargs):
-    model = ModifiedResNet(
-        num_classes=num_classes,
-        loss=loss,
-        block=BasicBlock,
-        layers=[3, 4, 6, 3],
-        last_stride=2,
-        fc_dims=[256],  # Add a new fully connected layer with 256 nodes
-        dropout_p=None,
-        **kwargs,
-    )
-    if pretrained:
-        init_pretrained_weights(model, model_urls["resnet34"])
     return model
