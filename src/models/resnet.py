@@ -144,7 +144,7 @@ class ResNet(nn.Module):
         # backbone network
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
-        self.relu = nn.LeakyReLU(negative_slope=leaky_slope, inplace=True)
+        self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
@@ -157,26 +157,25 @@ class ResNet(nn.Module):
 
         self._init_params()
 
-    
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(
-                    self.inplanes,
-                    planes * block.expansion,
-                    kernel_size=1,
-                    stride=stride,
-                    bias=False,
-                ),
-                nn.BatchNorm2d(planes * block.expansion),
-            )
+            nn.Conv2d(
+                self.inplanes,
+                planes * block.expansion,
+                kernel_size=1,
+                stride=stride,
+                bias=False,
+            ),
+            nn.BatchNorm2d(planes * block.expansion),
+        )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample, leaky_slope=self.leaky_slope))  # pass the leaky_slope argument
+        layers.append(block(self.inplanes, planes, stride, downsample))
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes, leaky_slope=self.leaky_slope))  # pass the leaky_slope argument
+            layers.append(block(self.inplanes, planes))
 
         return nn.Sequential(*layers)
 
