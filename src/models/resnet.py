@@ -139,7 +139,7 @@ class ResNet(nn.Module):
         self.inplanes = 64
         super().__init__()
         self.loss = loss
-        self.feature_dim = 1024 * block.expansion
+        self.feature_dim = 512 * block.expansion
 
         # backbone network
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
@@ -152,8 +152,9 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=last_stride)
 
         self.global_avgpool = nn.AdaptiveAvgPool2d(1)
-        self.fc = self._construct_fc_layer(fc_dims, 1024 * block.expansion, dropout_p)
-        self.classifier = nn.Linear(1024, num_classes)
+        self.fc = self._construct_fc_layer(fc_dims, 512 * block.expansion, dropout_p)
+        self.fc2 = self._construct_fc_layer(fc_dims, 512 * block.expansion, dropout_p)
+        self.classifier = nn.Linear(self.feature_dim, num_classes)
 
         self._init_params()
 
@@ -244,6 +245,8 @@ class ResNet(nn.Module):
 
         if self.fc is not None:
             v = self.fc(v)
+        if self.fc2 is not None:
+            v = self.fc2(v)
 
         if not self.training:
             return v
@@ -325,7 +328,7 @@ def resnet34(num_classes, loss={"xent"}, pretrained=True, **kwargs):
         block=BasicBlock,
         layers=[3, 4, 6, 3],
         last_stride=2,
-        fc_dims=None,
+        fc_dims=[512],
         dropout_p=None,
         **kwargs,
     )
