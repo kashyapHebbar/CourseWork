@@ -160,66 +160,60 @@ def main():
     ranklogger.show_summary()
 
 
-def train(
-    epoch, model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu
-):
+def train(model, criterion, optimizer, epoch, trainloader, use_gpu):
+    model.train()
     xent_losses = AverageMeter()
     htri_losses = AverageMeter()
     accs = AverageMeter()
     batch_time = AverageMeter()
     data_time = AverageMeter()
 
-    model.train()
-    for p in model.parameters():
-        p.requires_grad = True  # open all layers
-
     end = time.time()
-    for batch_idx, (imgs, pids, _, _) in enumerate(trainloader):
+    for batch_idx, (imgs, pids, camids) in enumerate(trainloader):
         data_time.update(time.time() - end)
 
         if use_gpu:
-            imgs, pids = imgs.cuda(), pids.cuda()
+            imgs, pids, camids = imgs.cuda(), pids.cuda(), camids.cuda()
 
         outputs = model(imgs)
-        if isinstance(outputs, (tuple, list)):
-            xent_loss = DeepSupervision(criterion_xent, outputs, pids)
-        else:
-            xent_loss = criterion_xent(outputs, pids)
+        features = outputs
 
         if isinstance(features, (tuple, list)):
-            htri_loss = DeepSupervision(criterion_htri, features, pids)
+            loss = DeepSupervision(criterion, features, pids)
         else:
-            htri_loss = criterion_htri(features, pids)
+            loss = criterion(features, pids)
 
-        loss = args.lambda_xent * xent_loss + args.lambda_htri * htri_loss
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
+        xent_loss = loss.item()
+        xent_losses.update(xent_loss, pids.size(0))
+
+        _, preds = torch.max(outputs.data, 1)
+        acc = (preds == pids.data).float().mean()
+        accs.update(acc.item(), pids.size(0))
+
         batch_time.update(time.time() - end)
+        end = time.time()
 
-        xent_losses.update(xent_loss.item(), pids.size(0))
-        htri_losses.update(htri_loss.item(), pids.size(0))
-        accs.update(accuracy(outputs, pids)[0])
-
-        if (batch_idx + 1) % args.print_freq == 0:
+        if (batch_idx + 1) % 10 == 0:
             print(
-                "Epoch: [{0}][{1}/{2}]\t"
-                "Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
-                "Data {data_time.val:.4f} ({data_time.avg:.4f})\t"
-                "Xent {xent.val:.4f} ({xent.avg:.4f})\t"
-                "Htri {htri.val:.4f} ({htri.avg:.4f})\t"
-                "Acc {acc.val:.2f} ({acc.avg:.2f})\t".format(
+                "Epoch {0} [{1}/{2}]\t"
+                "Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
+                "Data Time {data_time.val:.3f} ({data_time.avg:.3f})\t"
+                "Loss {loss.val:.4f} ({loss.avg:.4f})\t"
+                "Acc {acc.val:.2%} ({acc.avg:.2%})".format(
                     epoch + 1,
                     batch_idx + 1,
                     len(trainloader),
                     batch_time=batch_time,
                     data_time=data_time,
-                    xent=xent_losses,
-                    htri=htri_losses,
+                    loss=xent_losses,
                     acc=accs,
                 )
             )
+
 
         end = time.time()
 
